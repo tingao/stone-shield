@@ -1,0 +1,167 @@
+Here is the **Master Specification v1.0** for "Stone Shield." This document consolidates every decision, constant, and logic rule we have agreed upon.
+
+**Treat this as the "Source of Truth" for our coding phase.**
+
+---
+
+### 1. Core Identity
+
+* **Project Name:** Stone Shield
+* **Platform:** Android (Modern/Native) - Specifically optimized for **OnePlus 15** (Android 15+).
+* **Goal:** A biological hydration simulator to prevent kidney stones by minimizing time in the "Danger Zone."
+* **Architecture Philosophy:** **"Calculus on Demand"**
+* **No Background Services:** The app does not run a loop. It sleeps until the user interacts or a system alarm fires.
+* **Logic:** `Calculate State -> Schedule Next Alarm -> Kill Process`.
+* **Battery Strategy:** Aggressive preservation. We use "One-Shot" sensor checks and "Retroactive" math instead of continuous monitoring.
+
+
+
+---
+
+### 2. The "Physics" (Global Constants)
+
+These values drive the math engine.
+
+**Decay Rates (Fluid Loss)**
+
+* `BASE_DECAY_AWAKE`: **0.8 ml/min** (Standard metabolic loss).
+* `BASE_DECAY_SLEEP`: **0.5 ml/min** (Reduced loss).
+* `SWEAT_PENALTY_LIGHT`: **-200 ml** (Instant subtraction).
+* `SWEAT_PENALTY_HEAVY`: **-400 ml** (Instant subtraction).
+
+**Dynamic Multipliers**
+
+* **Temperature:**
+* Threshold: **21.0°C**.
+* Factor: **+0.05** to decay rate per **1°C** above threshold.
+
+
+* **Alcohol:**
+* Factor: **1.5x** to decay rate.
+* Duration: **120 minutes** after intake.
+* *Rule:* If Water is consumed during this 120-min window, the 1.5x multiplier **remains active** (diuretic effect applies to the new water too).
+
+
+
+**Thresholds (The Tank)**
+
+* `SATURATION_CAP`: **800 ml** (Visual "Blue Zone").
+* `SAFE_FLOOR`: **400 ml** (Green/Yellow border).
+* `DANGER_FLOOR`: **200 ml** (Yellow/Red border - Critical Risk).
+* `NIGHT_SURVIVAL_MIN`: **650 ml** (Calculated target to survive 8h sleep).
+
+---
+
+### 3. The Logic Engine
+
+#### A. "Current Tank" Calculation
+
+* **Trigger:** App Open or Notification.
+* **Formula:** `Last_Volume + Inputs - Outputs - (Time_Elapsed * Effective_Rate)`
+* **Effective Rate Logic:** Checks Time (Sleep?), Temp (Heat?), and Alcohol (Diuretic?) to build the dynamic rate.
+
+#### B. The "Color Snap" (Ground Truth)
+
+* **Trigger:** User logs Pee Color.
+* **Logic:** Input overrides the Math.
+* **Dark Orange:** Force Tank = **0 ml**.
+* **Yellow:** Force Tank = `min(current, 300)`.
+* **Light Yellow:** No change (Trust the math).
+* **Clear:** Force Tank = **800 ml**.
+
+
+* **Graph Behavior:** A vertical drop/rise to the new value at that timestamp.
+
+#### C. The "Night Protocol" (Retroactive)
+
+* **Problem:** User sleeps without telling the app.
+* **Solution:** On morning wake-up, the app queries **UsageStats**.
+* **Logic:**
+1. Find the longest "Screen Off" block > 4 hours in the last 12 hours.
+2. Insert a "Sleep Event" at the start of that block in the DB.
+3. Recalculate tank history using `BASE_DECAY_SLEEP` for that duration.
+
+
+* **Permission:** Requires manual "Usage Access" permission (handled via onboarding).
+
+#### D. The Alarm Scheduler
+
+* **Tool:** `AlarmManager` (Android Native).
+* **Method:** `setExactAndAllowWhileIdle` (Punches through Doze mode).
+* **Logic:**
+* Calculate minutes until Tank = 400ml (Warning) and Tank = 200ml (Critical).
+* Set **one** system alarm for the nearest future hazard.
+
+
+* **DND Policy:** Respect System DND. Notification posts to tray, but sound/vibration is suppressed by OS if DND is active (Night mode).
+
+---
+
+### 4. Hardware Sensor Strategy
+
+#### A. Temperature
+
+* **Source:** `BatteryManager.EXTRA_TEMPERATURE`.
+* **Polling:** One-shot snapshot when adding an event.
+* **Charging Logic:**
+* If `IsPluggedIn` AND `ChargeTime > 1 Hour`: Assume Device is hot due to wall power. **Force Temp = 21°C (Room Temp)**.
+* *Note:* No Weather API in V1 (keep it offline/private for now).
+
+
+
+---
+
+### 5. User Interface (UI) Specs
+
+* **Main Dashboard:**
+* **Top:** Line Graph (Vico). Shows tank level over time. Background colored zones (Red/Yellow/Green).
+* **Center:** Big Bold "Current mL" Text.
+* **Bottom:** Quick Actions (Water +300/500/700, Alcohol, Pee Log).
+
+
+* **Dialogs:**
+* **Pee Log:** Bottom Sheet (Select Color -> Select Volume).
+* **Bedtime Check:** "Did you sweat today?" (Adjusts tank before sleep calculation).
+* **Morning Prompt:** "Wake up & Flow" (Encourage 500ml intake).
+
+
+
+---
+
+### 6. The Tech Stack (Modern Android)
+
+* **Language:** **Kotlin** (100%).
+* **Framework:** **Jetpack Compose** (Declarative UI).
+* **Architecture:** **MVVM** (Model-View-ViewModel).
+* *Model:* Room Database + DataStore.
+* *View:* Compose Screens.
+* *ViewModel:* Holds state, talks to Repository.
+
+
+* **Database:** **Room** (SQLite)
+* *Type Safety:* Strong.
+
+
+* **Dependency Injection:** **Hilt**
+* *Role:* Injects Database/Repository into ViewModels.
+
+
+* **Graphing Library:** **Vico** (Compose-native, lightweight).
+* **Async:** **Coroutines & Flow**.
+* **Build System:** Gradle (Kotlin DSL).
+
+---
+
+### 7. Developer Roadmap (The "LLM Plan")
+
+1. **Skeleton:** Set up project, Hilt, Room, and Navigation.
+2. **The Physics:** Create `Constants.kt` and `HydrationMath.kt` (Pure logic, no UI).
+3. **Data Layer:** Create `Event` Entity and `TankRepository`.
+4. **The Engine:** Implement the math in the Repository (reading events, calculating current mL).
+5. **UI - Dashboard:** Build the Gauge and Buttons. Connect to Engine.
+6. **Scheduler:** implement `AlarmManager` logic.
+7. **Sensors:** Add Battery Temp and UsageStats permission/logic.
+8. **Visuals:** Add the Vico Graph.
+
+**Ready to start?**
+I suggest we begin by generating the **Constants** and the **Math Engine** (Step 2). This validates our logic before we get distracted by UI. Shall I generate `Constants.kt` and `HydrationMath.kt`?
