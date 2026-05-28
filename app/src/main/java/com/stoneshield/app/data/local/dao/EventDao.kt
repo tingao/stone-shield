@@ -17,6 +17,9 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE timestamp >= :since ORDER BY timestamp ASC")
     suspend fun getEventsSinceSync(since: Long): List<EventEntity>
 
+    @Query("SELECT * FROM events WHERE timestamp >= :startOfDay AND timestamp < :endOfDay ORDER BY timestamp ASC")
+    suspend fun getEventsForDaySync(startOfDay: Long, endOfDay: Long): List<EventEntity>
+
     @Insert
     suspend fun insertEvent(event: EventEntity): Long
 

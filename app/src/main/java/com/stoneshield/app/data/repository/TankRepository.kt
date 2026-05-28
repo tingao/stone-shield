@@ -26,6 +26,21 @@ data class AlertInfo(
     val criticalMinutes: Long
 )
 
+data class ChartPoint(
+    val timestamp: Long,
+    val volume: Int,
+    val isEvent: Boolean = false
+)
+
+data class DaySummary(
+    val date: Long,
+    val avgMl: Int,
+    val totalWater: Int,
+    val minMl: Int,
+    val maxMl: Int,
+    val dangerMinutes: Int
+)
+
 @Singleton
 class TankRepository @Inject constructor(
     private val eventDao: EventDao
@@ -195,6 +210,79 @@ class TankRepository @Inject constructor(
                 tankState.currentMl, Constants.DANGER_FLOOR, tankState.effectiveRate
             )
         )
+    }
+
+    suspend fun calculateChartData(
+        since: Long,
+        sampleIntervalMs: Long = 5 * 60 * 1000,
+        temperatureCelsius: Double?,
+        isPluggedIn: Boolean,
+        chargeTimeMinutes: Long
+    ): List<ChartPoint> {
+        val now = System.currentTimeMillis()
+        val events = eventDao.getEventsSinceSync(since)
+        val points = mutableListOf<ChartPoint>()
+
+        var lastVolume = Constants.SATURATION_CAP
+        var lastEventTime = since
+        var bodyState = BodyState.AWAKE
+        var alcoholActive = false
+        var alcoholUntil = 0L
+
+        fun computeRate() = HydrationMath.calculateEffectiveRate(
+            bodyState, temperatureCelsius, alcoholActive, isPluggedIn, chargeTimeMinutes
+        )
+
+        fun simulate(toTime: Long) {
+            var cursor = lastEventTime + sampleIntervalMs
+            while (cursor <= toTime) {
+                val elapsed = (cursor - lastEventTime) / 60_000
+                val rate = computeRate()
+                lastVolume = HydrationMath.calculateCurrentTank(lastVolume, 0, 0, max(0, elapsed), rate)
+                lastEventTime = cursor
+                points.add(ChartPoint(cursor, lastVolume))
+                cursor += sampleIntervalMs
+            }
+        }
+
+        for (event in events) {
+            val elapsed = (event.timestamp - lastEventTime) / 60_000
+            val rate = computeRate()
+            lastVolume = HydrationMath.calculateCurrentTank(lastVolume, 0, 0, max(0, elapsed), rate)
+            lastEventTime = event.timestamp
+
+            when (event.type) {
+                EventEntity.TYPE_WATER -> lastVolume += event.value
+                EventEntity.TYPE_ALCOHOL -> { alcoholActive = true; alcoholUntil = event.timestamp + Constants.ALCOHOL_DURATION_MIN * 60_000 }
+                EventEntity.TYPE_PEE -> lastVolume -= event.value
+                EventEntity.TYPE_COLOR_SNAP -> lastVolume = HydrationMath.applyColorSnap(lastVolume, PeeColor.entries[event.value])
+                EventEntity.TYPE_SLEEP -> bodyState = BodyState.SLEEP
+                EventEntity.TYPE_WAKE -> bodyState = BodyState.AWAKE
+                EventEntity.TYPE_SWEAT -> lastVolume += if (event.value == 0) Constants.SWEAT_PENALTY_LIGHT else Constants.SWEAT_PENALTY_HEAVY
+            }
+            lastVolume = lastVolume.coerceIn(0, Constants.SATURATION_CAP)
+            points.add(ChartPoint(event.timestamp, lastVolume, isEvent = true))
+        }
+
+        val finalElapsed = (now - lastEventTime) / 60_000
+        alcoholActive = alcoholActive && now < alcoholUntil
+        val finalRate = computeRate()
+        lastVolume = HydrationMath.calculateCurrentTank(lastVolume, 0, 0, max(0, finalElapsed), finalRate)
+        points.add(ChartPoint(now, lastVolume))
+
+        return points
+    }
+
+    suspend fun getDaySummary(dayStart: Long): DaySummary {
+        val dayEnd = dayStart + 86_400_000
+        val events = eventDao.getEventsForDaySync(dayStart, dayEnd)
+        val chart = calculateChartData(dayStart, 30 * 60 * 1000, null, false, 0)
+        val avg = if (chart.isNotEmpty()) chart.map { it.volume }.average().toInt() else 0
+        val totalWater = events.filter { it.type == EventEntity.TYPE_WATER }.sumOf { it.value }
+        val min = chart.minOfOrNull { it.volume } ?: 0
+        val max = chart.maxOfOrNull { it.volume } ?: 0
+        val dangerMin = chart.count { it.volume <= Constants.DANGER_FLOOR } * 30
+        return DaySummary(dayStart, avg, totalWater, min, max, dangerMin)
     }
 
     suspend fun hasRecentSleepEvent(since: Long): Boolean {
