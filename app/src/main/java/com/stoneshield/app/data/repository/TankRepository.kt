@@ -7,7 +7,7 @@ import com.stoneshield.app.domain.Constants
 import com.stoneshield.app.domain.HydrationMath
 import com.stoneshield.app.domain.PeeColor
 import kotlinx.coroutines.flow.Flow
-import java.lang.Long.max
+import kotlin.math.max
 import javax.inject.Inject
 import javax.inject.Singleton
 

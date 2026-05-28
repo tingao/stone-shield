@@ -10,10 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -28,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,15 +41,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
-import com.patrykandpatrick.vico.core.entry.entryModelOf
+import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModel
+import com.patrykandpatrick.vico.core.cartesian.data.LineCartesianLayerModel
 import com.stoneshield.app.domain.Constants
 import com.stoneshield.app.domain.PeeColor
+
+private val GRAY_BG = Color(0xFFBCBCBC)
+private val GREEN_ZONE = Color(0xFF43A047)
+private val YELLOW_ZONE = Color(0xFFFFA726)
+private val RED_ZONE = Color(0xFFD32F2F)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,33 +76,57 @@ fun DashboardScreen(
             }
         } else {
             val state = tankState!!
-            val bgColor = Color(viewModel.getBackgroundColor(state.currentMl))
+            val zoneColor = when {
+                state.currentMl <= Constants.DANGER_FLOOR -> RED_ZONE
+                state.currentMl <= Constants.SAFE_FLOOR -> YELLOW_ZONE
+                else -> GREEN_ZONE
+            }
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(bgColor.copy(alpha = 0.1f))
+                    .background(zoneColor.copy(alpha = 0.08f))
                     .padding(padding)
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Spacer(Modifier.height(24.dp))
+
                 HydrationChart(currentMl = state.currentMl)
 
                 Spacer(Modifier.height(16.dp))
 
-                TankGauge(currentMl = state.currentMl, bgColor = bgColor)
+                TankGauge(currentMl = state.currentMl, zoneColor = zoneColor)
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
 
                 Text(
                     text = when {
-                        state.currentMl <= 200 -> "CRITICAL - Drink now!"
-                        state.currentMl <= 400 -> "Warning - Hydrate soon"
+                        state.currentMl <= Constants.DANGER_FLOOR -> "CRITICAL - Drink now!"
+                        state.currentMl <= Constants.SAFE_FLOOR -> "Warning - Hydrate soon"
                         else -> "Hydrated"
                     },
                     style = MaterialTheme.typography.titleMedium,
-                    color = bgColor,
+                    color = zoneColor,
                     fontWeight = FontWeight.Bold
+                )
+
+                if (state.alcoholActive) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Alcohol active - diuretic multiplier",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFE65100)
+                    )
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                TankBar(
+                    currentMl = state.currentMl,
+                    maxMl = Constants.SATURATION_CAP,
+                    safeFloor = Constants.SAFE_FLOOR,
+                    dangerFloor = Constants.DANGER_FLOOR
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -127,56 +155,95 @@ fun DashboardScreen(
 
 @Composable
 private fun HydrationChart(currentMl: Int) {
-    val modelProducer = remember { CartesianChartModelProducer() }
-
-    androidx.compose.runtime.LaunchedEffect(currentMl) {
-        modelProducer.runTransaction {
-            lineSeries {
-                series(
-                    listOf(
-                        (System.currentTimeMillis() - 86_400_000) to (currentMl * 0.7).toFloat(),
-                        (System.currentTimeMillis() - 43_200_000) to (currentMl * 0.85).toFloat(),
-                        System.currentTimeMillis() to currentMl.toFloat()
-                    )
-                )
+    val clamped = currentMl.toFloat().coerceIn(0f, 800f)
+    val model = remember(currentMl) {
+        CartesianChartModel(
+            LineCartesianLayerModel.build {
+                series(clamped * 0.7f, clamped * 0.85f, clamped)
             }
-        }
+        )
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(200.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(180.dp),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         CartesianChartHost(
             chart = rememberCartesianChart(
                 rememberLineCartesianLayer(),
-                startAxis = rememberStartAxis(),
-                bottomAxis = rememberBottomAxis()
+                startAxis = VerticalAxis.rememberStart(),
+                bottomAxis = HorizontalAxis.rememberBottom()
             ),
-            modelProducer = modelProducer,
-            modifier = Modifier.padding(8.dp)
+            model = model,
+            modifier = Modifier.padding(top = 8.dp)
         )
     }
-
-    Spacer(Modifier.height(8.dp))
 }
 
 @Composable
-private fun TankGauge(currentMl: Int, bgColor: Color) {
+private fun TankGauge(currentMl: Int, zoneColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = "$currentMl",
             fontSize = 72.sp,
             fontWeight = FontWeight.Bold,
-            color = bgColor,
+            color = zoneColor,
             textAlign = TextAlign.Center
         )
         Text(
             text = "mL",
             fontSize = 20.sp,
-            color = bgColor.copy(alpha = 0.7f)
+            color = zoneColor.copy(alpha = 0.7f)
         )
+    }
+}
+
+@Composable
+private fun TankBar(
+    currentMl: Int,
+    maxMl: Int,
+    safeFloor: Int,
+    dangerFloor: Int
+) {
+    val fraction = (currentMl.toFloat() / maxMl).coerceIn(0f, 1f)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(RED_ZONE.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            )
+            val yellowFraction = safeFloor.toFloat() / maxMl
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction)
+                    .height(24.dp)
+                    .background(
+                        when {
+                            currentMl <= dangerFloor -> RED_ZONE
+                            currentMl <= safeFloor -> YELLOW_ZONE
+                            else -> GREEN_ZONE
+                        },
+                        RoundedCornerShape(12.dp)
+                    )
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text("0", fontSize = 10.sp, color = GRAY_BG)
+            Spacer(Modifier.weight(1f))
+            Text("$safeFloor", fontSize = 10.sp, color = YELLOW_ZONE)
+            Spacer(Modifier.weight(1f))
+            Text("$maxMl", fontSize = 10.sp, color = GREEN_ZONE)
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.stoneshield.app.sensor
 
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import com.stoneshield.app.domain.Constants
@@ -20,54 +21,40 @@ class UsageStatsProvider @Inject constructor(
     fun detectSleepBlock(): SleepBlock? {
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
         val now = System.currentTimeMillis()
-        val lookback = now - Constants.NIGHT_LOOKBACK_HOURS * 60 * 60 * 1000
+        val lookback = now - Constants.NIGHT_LOOKBACK_HOURS * 60 * 60 * 1000L
 
-        val usageStats = usm.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY, lookback, now
-        ) ?: return null
+        val usageEvents = usm.queryEvents(lookback, now) ?: return null
 
-        if (usageStats.isEmpty()) return null
+        var sleepStart: Long? = null
+        val candidates = mutableListOf<SleepBlock>()
 
-        usageStats.sortBy { it.firstTimeStamp }
+        while (usageEvents.hasNextEvent()) {
+            val event = UsageEvents.Event()
+            if (!usageEvents.getNextEvent(event)) continue
 
-        var longestScreenOff: SleepBlock? = null
-        var lastScreenOffStart: Long? = null
-
-        for (stats in usageStats) {
-            if (stats.lastTimeUsed < lookback) continue
-
-            val isScreenOff = stats.lastTimeUsed > 0 &&
-                stats.totalTimeInForeground == 0L
-
-            if (isScreenOff) {
-                if (lastScreenOffStart == null) {
-                    lastScreenOffStart = stats.firstTimeStamp
+            when (event.eventType) {
+                UsageEvents.Event.SCREEN_NON_INTERACTIVE -> {
+                    if (sleepStart == null) sleepStart = event.timeStamp
                 }
-            } else {
-                lastScreenOffStart?.let { start ->
-                    val end = stats.firstTimeStamp
-                    val dur = (end - start) / 60_000
-                    if (dur > Constants.NIGHT_DETECT_MIN_HOURS * 60) {
-                        val current = SleepBlock(start, end, dur)
-                        if (longestScreenOff == null || dur > longestScreenOff.durationMinutes) {
-                            longestScreenOff = current
+                UsageEvents.Event.SCREEN_INTERACTIVE -> {
+                    sleepStart?.let { start ->
+                        val dur = (event.timeStamp - start) / 60_000
+                        if (dur >= Constants.NIGHT_DETECT_MIN_HOURS * 60L) {
+                            candidates.add(SleepBlock(start, event.timeStamp, dur))
                         }
                     }
+                    sleepStart = null
                 }
-                lastScreenOffStart = null
             }
         }
 
-        lastScreenOffStart?.let { start ->
+        sleepStart?.let { start ->
             val dur = (now - start) / 60_000
-            if (dur > Constants.NIGHT_DETECT_MIN_HOURS * 60) {
-                val current = SleepBlock(start, now, dur)
-                if (longestScreenOff == null || dur > longestScreenOff.durationMinutes) {
-                    longestScreenOff = current
-                }
+            if (dur >= Constants.NIGHT_DETECT_MIN_HOURS * 60L) {
+                candidates.add(SleepBlock(start, now, dur))
             }
         }
 
-        return longestScreenOff
+        return candidates.maxByOrNull { it.durationMinutes }
     }
 }

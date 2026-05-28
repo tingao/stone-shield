@@ -21,3 +21,4 @@ out/
 *.hprof
 *.keystore
 !gradle/wrapper/gradle-wrapper.jar
+/app/build/
