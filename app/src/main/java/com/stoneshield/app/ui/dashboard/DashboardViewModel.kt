@@ -56,9 +56,10 @@ class DashboardViewModel @Inject constructor(
 
     private fun loadWaterButtons() {
         viewModelScope.launch {
-            val saved = prefs.waterButtons.first()
-            if (saved.isNotEmpty()) {
-                _uiState.value = _uiState.value.copy(waterButtons = saved)
+            prefs.waterButtons.collect { saved ->
+                if (saved.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(waterButtons = saved)
+                }
             }
         }
     }

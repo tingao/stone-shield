@@ -1,5 +1,6 @@
 package com.stoneshield.app.ui.calendar
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,23 +21,26 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,18 +52,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.stoneshield.app.data.local.EventEntity
-import com.stoneshield.app.ui.theme.LightBlue
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 data class GridDay(val dayNum: Int, val dateStart: Long)
+
+private var quickAddShown = false
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +77,12 @@ fun CalendarScreen(
     val selectedDay by viewModel.selectedDay.collectAsState()
     val dayEvents by viewModel.dayEvents.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var editEvent by remember { mutableStateOf<EventEntity?>(null) }
+
+    if (!quickAddShown && selectedDay != null && dayEvents.isEmpty()) {
+        viewModel.addWaterToDay(selectedDay!!)
+        quickAddShown = true
+    }
 
     Scaffold(
         topBar = {
@@ -79,6 +91,13 @@ fun CalendarScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (selectedDay != null) {
+                        IconButton(onClick = { if (!quickAddShown) { quickAddShown = true; viewModel.addWaterToDay(selectedDay!!) } else { showAddDialog = true } }) {
+                            Icon(Icons.Default.Add, "Add event")
+                        }
                     }
                 }
             )
@@ -116,52 +135,87 @@ fun CalendarScreen(
                     Box(
                         modifier = Modifier.size(40.dp).clip(CircleShape).background(bg).then(
                             if (hasData) Modifier.clickable { viewModel.selectDay(gd.dateStart) }
-                            else if (gd.dayNum > 0) Modifier.clickable { viewModel.selectDay(gd.dateStart); showAddDialog = true }
+                            else if (gd.dayNum > 0) Modifier.clickable { viewModel.selectDay(gd.dateStart) }
                             else Modifier
                         ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (gd.dayNum > 0) {
-                            Text("${gd.dayNum}", fontSize = 13.sp)
-                        }
+                        if (gd.dayNum > 0) Text("${gd.dayNum}", fontSize = 13.sp)
                     }
                 }
             }
 
-            // Day events list
             if (selectedDay != null && dayEvents.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text("Events", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                     items(dayEvents, key = { it.id }) { event ->
-                        DayEventRow(event)
+                        SwipeableDayEventRow(
+                            event = event,
+                            onDelete = { viewModel.deleteEvent(event.id) },
+                            onEdit = { editEvent = event }
+                        )
                     }
                 }
             } else if (selectedDay != null) {
                 Spacer(Modifier.height(12.dp))
                 Text("No events this day", color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
             }
+        }
+    }
 
-            // Add event dialog
-            if (showAddDialog && selectedDay != null) {
-                AlertDialog(
-                    onDismissRequest = { showAddDialog = false },
-                    title = { Text("Quick Add") },
-                    text = { Text("Add event for this day?") },
-                    confirmButton = {
-                        TextButton({
-                            viewModel.addWaterToDay(selectedDay!!)
-                            showAddDialog = false
-                        }) {
-                            Icon(Icons.Default.WaterDrop, null, tint = LightBlue, modifier = Modifier.size(18.dp))
-                            Text(" +500ml water", color = LightBlue)
-                        }
-                    },
-                    dismissButton = { TextButton({ showAddDialog = false }) { Text("Cancel") } }
-                )
+    editEvent?.let { event ->
+        EditDialog(
+            event = event,
+            onDismiss = { editEvent = null },
+            onSave = { v, t -> viewModel.updateEvent(event.id, v, t); editEvent = null }
+        )
+    }
+
+    if (showAddDialog && selectedDay != null) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Quick Add") },
+            text = { Text("Add 500ml water to this day?") },
+            confirmButton = {
+                TextButton({ viewModel.addWaterToDay(selectedDay!!); showAddDialog = false }) {
+                    Icon(Icons.Default.WaterDrop, null, tint = Color(0xFF0277BD), modifier = Modifier.size(18.dp))
+                    Text(" +500ml", color = Color(0xFF0277BD))
+                }
+            },
+            dismissButton = { TextButton({ showAddDialog = false }) { Text("Cancel") } }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableDayEventRow(event: EventEntity, onDelete: () -> Unit, onEdit: () -> Unit) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> { onDelete(); true }
+                SwipeToDismissBoxValue.EndToStart -> { onEdit(); false }
+                else -> false
             }
         }
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            val isDel = dismissState.targetValue == SwipeToDismissBoxValue.StartToEnd
+            val color by animateColorAsState(
+                targetValue = if (isDel) Color(0xFFD32F2F) else Color(0xFF1565C0), label = "bg")
+            Box(Modifier.fillMaxSize().background(color).padding(horizontal = 16.dp),
+                contentAlignment = if (isDel) Alignment.CenterStart else Alignment.CenterEnd) {
+                Text(if (isDel) "Delete" else "Edit", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+    ) {
+        DayEventRow(event)
     }
 }
 
@@ -177,10 +231,36 @@ private fun DayEventRow(event: EventEntity) {
         EventEntity.TYPE_SWEAT -> "💦 Sweat"
         else -> "📝 ${event.type}"
     }
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(label, modifier = Modifier.weight(1f), fontSize = 13.sp)
-        Text(sdf.format(Date(event.timestamp)), fontSize = 12.sp, color = Color.Gray)
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(6.dp), elevation = CardDefaults.cardElevation(1.dp)) {
+        Row(Modifier.padding(10.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, modifier = Modifier.weight(1f), fontSize = 13.sp)
+            Text(sdf.format(Date(event.timestamp)), fontSize = 12.sp, color = Color.Gray)
+        }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditDialog(event: EventEntity, onDismiss: () -> Unit, onSave: (Int, Long) -> Unit) {
+    var newValue by remember { mutableStateOf(event.value.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Event") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = newValue,
+                    onValueChange = { newValue = it.filter { c -> c.isDigit() }.take(5) },
+                    label = { Text("Value (ml)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = { TextButton({ val v = newValue.toIntOrNull(); if (v != null) onSave(v, event.timestamp) }) { Text("Save") } },
+        dismissButton = { TextButton(onDismiss) { Text("Cancel") } }
+    )
 }
 
 private fun buildMonthGrid(): List<GridDay> {

@@ -46,9 +46,7 @@ class CalendarViewModel @Inject constructor(
 
     fun selectDay(dateStart: Long) {
         _selectedDay.value = dateStart
-        viewModelScope.launch {
-            _dayEvents.value = repository.getDayEvents(dateStart)
-        }
+        viewModelScope.launch { _dayEvents.value = repository.getDayEvents(dateStart) }
     }
 
     fun addWaterToDay(dateStart: Long) {
@@ -56,6 +54,20 @@ class CalendarViewModel @Inject constructor(
             repository.addWaterAt(500, dateStart + 12 * 60 * 60 * 1000)
             loadMonth()
             selectDay(dateStart)
+        }
+    }
+
+    fun deleteEvent(id: Long) {
+        viewModelScope.launch {
+            repository.deleteEvent(id)
+            _selectedDay.value?.let { selectDay(it) }
+        }
+    }
+
+    fun updateEvent(id: Long, value: Int, timestamp: Long) {
+        viewModelScope.launch {
+            repository.updateEvent(id, value, timestamp)
+            _selectedDay.value?.let { selectDay(it) }
         }
     }
 }

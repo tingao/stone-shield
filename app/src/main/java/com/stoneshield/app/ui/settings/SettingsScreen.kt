@@ -89,14 +89,19 @@ fun SettingsScreen(
                     Spacer(Modifier.height(12.dp))
 
                     val values = remember { mutableStateListOf<String>().apply {
-                        waterButtons.forEach { add(it.toString()) }
+                        waterButtons.sorted().forEach { add(it.toString()) }
                     } }
+
+                    fun autoSave() {
+                        val parsed = values.mapNotNull { it.toIntOrNull() }.filter { it in 50..2000 }.sorted()
+                        if (parsed.isNotEmpty()) viewModel.setWaterButtons(parsed)
+                    }
 
                     values.forEachIndexed { i, s ->
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(
                                 value = s,
-                                onValueChange = { values[i] = it.filter { c -> c.isDigit() }.take(4) },
+                                onValueChange = { values[i] = it.filter { c -> c.isDigit() }.take(4); autoSave() },
                                 label = { Text("Button ${i+1}") },
                                 placeholder = { Text("e.g. 300") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -106,7 +111,7 @@ fun SettingsScreen(
                             if (values.size > 1) {
                                 Spacer(Modifier.width(8.dp))
                                 Button(
-                                    onClick = { values.removeAt(i) },
+                                    onClick = { values.removeAt(i); autoSave() },
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                     shape = RoundedCornerShape(8.dp)
                                 ) { Text("X", color = MaterialTheme.colorScheme.onError) }
@@ -117,20 +122,10 @@ fun SettingsScreen(
                     if (values.size < 5) {
                         Spacer(Modifier.height(8.dp))
                         Button(
-                            onClick = { values.add("") },
+                            onClick = { values.add(""); autoSave() },
                             shape = RoundedCornerShape(8.dp)
                         ) { Text("+ Add button") }
                     }
-
-                    Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            val parsed = values.mapNotNull { it.toIntOrNull() }.filter { it in 50..2000 }
-                            if (parsed.isNotEmpty()) viewModel.setWaterButtons(parsed)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
-                    ) { Text("Save Buttons") }
                 }
             }
 
