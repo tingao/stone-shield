@@ -151,11 +151,11 @@ class DashboardViewModel @Inject constructor(
     fun addWater(amount: Int) { viewModelScope.launch {
         val current = _uiState.value.tankState?.currentMl ?: 0
         if (current >= com.stoneshield.app.domain.Constants.SATURATION_CAP) {
-            _uiState.value = _uiState.value.copy(message = "Already full (${current}ml max)")
+            _uiState.value = _uiState.value.copy(message = "Already full (${current}ml) — drinking more will only make you pee more")
             return@launch
         }
         if (current + amount > com.stoneshield.app.domain.Constants.SATURATION_CAP) {
-            _uiState.value = _uiState.value.copy(message = "Capped at ${com.stoneshield.app.domain.Constants.SATURATION_CAP}ml")
+            _uiState.value = _uiState.value.copy(message = "Capped at ${com.stoneshield.app.domain.Constants.SATURATION_CAP}ml — excess will be peed out")
         }
         repository.addWater(amount)
         if (current < com.stoneshield.app.domain.Constants.SATURATION_CAP) {

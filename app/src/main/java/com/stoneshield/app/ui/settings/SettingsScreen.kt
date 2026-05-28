@@ -34,7 +34,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -103,15 +105,20 @@ fun SettingsScreen(
                         if (parsed.isNotEmpty()) viewModel.setWaterButtons(parsed)
                     }
 
+                    val focusedIndex = remember { mutableStateOf(-1) }
+
                     values.forEachIndexed { i, s ->
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(
                                 value = s,
-                                onValueChange = { values[i] = it.filter { c -> c.isDigit() }.take(4); autoSave() },
+                                onValueChange = { values[i] = it.filter { c -> c.isDigit() }.take(4) },
                                 label = { Text("Button ${i+1}") },
                                 placeholder = { Text("e.g. 300") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).onFocusChanged { f ->
+                                    if (focusedIndex.value != i && f.isFocused) focusedIndex.value = i
+                                    if (focusedIndex.value == i && !f.isFocused) { autoSave(); focusedIndex.value = -1 }
+                                },
                                 singleLine = true
                             )
                             if (values.size > 1) {
@@ -128,7 +135,7 @@ fun SettingsScreen(
                     if (values.size < 5) {
                         Spacer(Modifier.height(8.dp))
                         Button(
-                            onClick = { values.add(""); autoSave() },
+                            onClick = { values.add("") },
                             shape = RoundedCornerShape(8.dp)
                         ) { Text("+ Add button") }
                     }

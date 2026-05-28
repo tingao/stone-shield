@@ -324,20 +324,27 @@ private fun QuickActionButtons(
         Text("Water", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
         Spacer(Modifier.height(8.dp))
         val btns = waterButtons.take(5)
-        val btnFraction = if (btns.isNotEmpty()) 1f / btns.size else 1f
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            for (amount in btns) {
-                ElevatedCard(
-                    modifier = Modifier.fillMaxWidth(btnFraction).clickable { onWater(amount) },
-                    shape = RoundedCornerShape(10.dp),
-                    elevation = CardDefaults.elevatedCardElevation(2.dp)
-                ) {
-                    Column(Modifier.padding(8.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.WaterDrop, null, tint = WATER_BLUE, modifier = Modifier.size(22.dp))
-                        Text("+$amount", fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        val rows = if (btns.size <= 3) listOf(btns) else {
+            val mid = (btns.size + 1) / 2
+            listOf(btns.subList(0, mid), btns.subList(mid, btns.size))
+        }
+        rows.forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { amount ->
+                    ElevatedCard(
+                        modifier = Modifier.weight(1f).clickable { onWater(amount) },
+                        shape = RoundedCornerShape(10.dp),
+                        elevation = CardDefaults.elevatedCardElevation(2.dp)
+                    ) {
+                        Column(Modifier.padding(horizontal = 4.dp, vertical = 6.dp).fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.WaterDrop, null, tint = WATER_BLUE, modifier = Modifier.size(20.dp))
+                            Text("+$amount", fontSize = 11.sp, maxLines = 1)
+                        }
                     }
                 }
             }
+            Spacer(Modifier.height(6.dp))
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
