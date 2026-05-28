@@ -23,6 +23,12 @@ interface EventDao {
     @Insert
     suspend fun insertEvent(event: EventEntity): Long
 
+    @Query("UPDATE events SET value = :value WHERE id = :id")
+    suspend fun updateEventValue(id: Long, value: Int)
+
+    @Query("UPDATE events SET timestamp = :timestamp WHERE id = :id")
+    suspend fun updateEventTimestamp(id: Long, timestamp: Long)
+
     @Query("DELETE FROM events WHERE id = :id")
     suspend fun deleteEvent(id: Long)
 

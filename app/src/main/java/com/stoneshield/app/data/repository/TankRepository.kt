@@ -34,11 +34,12 @@ data class ChartPoint(
 
 data class DaySummary(
     val date: Long,
-    val avgMl: Int,
-    val totalWater: Int,
-    val minMl: Int,
-    val maxMl: Int,
-    val dangerMinutes: Int
+    val hasData: Boolean,
+    val avgMl: Int = 0,
+    val totalWater: Int = 0,
+    val minMl: Int = 0,
+    val maxMl: Int = 0,
+    val dangerMinutes: Int = 0
 )
 
 @Singleton
@@ -276,17 +277,23 @@ class TankRepository @Inject constructor(
     suspend fun getDaySummary(dayStart: Long): DaySummary {
         val dayEnd = dayStart + 86_400_000
         val events = eventDao.getEventsForDaySync(dayStart, dayEnd)
+        val hasData = events.isNotEmpty()
+        if (!hasData) return DaySummary(dayStart, false)
         val chart = calculateChartData(dayStart, 30 * 60 * 1000, null, false, 0)
         val avg = if (chart.isNotEmpty()) chart.map { it.volume }.average().toInt() else 0
         val totalWater = events.filter { it.type == EventEntity.TYPE_WATER }.sumOf { it.value }
         val min = chart.minOfOrNull { it.volume } ?: 0
         val max = chart.maxOfOrNull { it.volume } ?: 0
         val dangerMin = chart.count { it.volume <= Constants.DANGER_FLOOR } * 30
-        return DaySummary(dayStart, avg, totalWater, min, max, dangerMin)
+        return DaySummary(dayStart, true, avg, totalWater, min, max, dangerMin)
     }
 
     suspend fun hasRecentSleepEvent(since: Long): Boolean {
         return eventDao.hasSleepEventInRange(since - 60_000, System.currentTimeMillis()) > 0
+    }
+
+    suspend fun addWaterAt(amount: Int, timestamp: Long) {
+        eventDao.insertEvent(EventEntity(timestamp = timestamp, type = EventEntity.TYPE_WATER, value = amount))
     }
 
     suspend fun addSleepEventAt(timestamp: Long) {
@@ -301,6 +308,15 @@ class TankRepository @Inject constructor(
 
     suspend fun deleteEvent(id: Long) {
         eventDao.deleteEvent(id)
+    }
+
+    suspend fun updateEvent(id: Long, value: Int, timestamp: Long) {
+        eventDao.updateEventValue(id, value)
+        eventDao.updateEventTimestamp(id, timestamp)
+    }
+
+    suspend fun getDayEvents(dayStart: Long): List<EventEntity> {
+        return eventDao.getEventsForDaySync(dayStart, dayStart + 86_400_000)
     }
 
     suspend fun getRecentEvents(limit: Int = 100): List<EventEntity> {

@@ -34,4 +34,11 @@ class HistoryViewModel @Inject constructor(
             loadEvents()
         }
     }
+
+    fun updateEvent(id: Long, value: Int, timestamp: Long) {
+        viewModelScope.launch {
+            repository.updateEvent(id, value, timestamp)
+            loadEvents()
+        }
+    }
 }

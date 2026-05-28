@@ -2,6 +2,7 @@ package com.stoneshield.app.ui.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.stoneshield.app.data.local.EventEntity
 import com.stoneshield.app.data.repository.DaySummary
 import com.stoneshield.app.data.repository.TankRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,8 +20,11 @@ class CalendarViewModel @Inject constructor(
     private val _days = MutableStateFlow<List<DaySummary>>(emptyList())
     val days: StateFlow<List<DaySummary>> = _days.asStateFlow()
 
-    private val _selectedDay = MutableStateFlow<DaySummary?>(null)
-    val selectedDay: StateFlow<DaySummary?> = _selectedDay.asStateFlow()
+    private val _selectedDay = MutableStateFlow<Long?>(null)
+    val selectedDay: StateFlow<Long?> = _selectedDay.asStateFlow()
+
+    private val _dayEvents = MutableStateFlow<List<EventEntity>>(emptyList())
+    val dayEvents: StateFlow<List<EventEntity>> = _dayEvents.asStateFlow()
 
     init { loadMonth() }
 
@@ -41,8 +45,17 @@ class CalendarViewModel @Inject constructor(
     }
 
     fun selectDay(dateStart: Long) {
+        _selectedDay.value = dateStart
         viewModelScope.launch {
-            _selectedDay.value = repository.getDaySummary(dateStart)
+            _dayEvents.value = repository.getDayEvents(dateStart)
+        }
+    }
+
+    fun addWaterToDay(dateStart: Long) {
+        viewModelScope.launch {
+            repository.addWaterAt(500, dateStart + 12 * 60 * 60 * 1000)
+            loadMonth()
+            selectDay(dateStart)
         }
     }
 }
