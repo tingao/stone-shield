@@ -17,10 +17,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -83,7 +85,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(2.dp)) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), elevation = CardDefaults.elevatedCardElevation(2.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Water Buttons", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(4.dp))
@@ -122,12 +124,9 @@ fun SettingsScreen(
                                 singleLine = true
                             )
                             if (values.size > 1) {
-                                Spacer(Modifier.width(8.dp))
-                                Button(
-                                    onClick = { values.removeAt(i); autoSave() },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) { Text("X", color = MaterialTheme.colorScheme.onError) }
+                                IconButton(onClick = { values.removeAt(i); autoSave() }) {
+                                    Icon(Icons.Default.Delete, "Remove", tint = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
                     }

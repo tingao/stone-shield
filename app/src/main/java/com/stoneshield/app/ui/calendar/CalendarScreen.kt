@@ -25,10 +25,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -158,6 +162,24 @@ fun CalendarScreen(
                 }
             }
 
+            selectedDay?.let { dayStart ->
+                val summary = days.find { it.date == dayStart }
+                if (summary != null && summary.hasData) {
+                    Spacer(Modifier.height(12.dp))
+                    ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), elevation = CardDefaults.elevatedCardElevation(2.dp)) {
+                        Column(Modifier.padding(16.dp)) {
+                            val sdf = remember { java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()) }
+                            Text(sdf.format(java.util.Date(dayStart)), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            Spacer(Modifier.height(10.dp))
+                            StatRow(Icons.Default.Opacity, "Average tank", "${summary.avgMl} mL")
+                            StatRow(Icons.Default.WaterDrop, "Total water", "${summary.totalWater} mL")
+                            StatRow(Icons.AutoMirrored.Filled.TrendingUp, "Min / Max", "${summary.minMl} / ${summary.maxMl} mL")
+                            StatRow(Icons.Default.Warning, "Time in danger", "${summary.dangerMinutes} min")
+                        }
+                    }
+                }
+            }
+
             if (selectedDay != null && dayEvents.isNotEmpty()) {
                 Spacer(Modifier.height(12.dp))
                 Text("Events", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -274,6 +296,16 @@ private fun EditDialog(event: EventEntity, onDismiss: () -> Unit, onSave: (Int, 
         confirmButton = { TextButton({ val v = newValue.toIntOrNull(); if (v != null) onSave(v, event.timestamp) }) { Text("Save") } },
         dismissButton = { TextButton(onDismiss) { Text("Cancel") } }
     )
+}
+
+@Composable
+private fun StatRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, modifier = Modifier.weight(1f), color = Color.Gray, fontSize = 13.sp)
+        Text(value, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+    }
 }
 
 private fun buildMonthGrid(): List<GridDay> {

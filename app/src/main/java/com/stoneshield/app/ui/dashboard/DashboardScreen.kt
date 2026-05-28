@@ -43,7 +43,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -148,8 +148,9 @@ fun DashboardScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            LargeTopAppBar(title = { Text("Stone Shield", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.largeTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            CenterAlignedTopAppBar(
+                title = { Text("Stone Shield", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
                 actions = {
                     IconButton(onClick = onNavigateCalendar) { Icon(Icons.Default.DateRange, "Calendar") }
                     IconButton(onClick = onNavigateHistory) { Icon(Icons.Default.History, "History") }
@@ -230,7 +231,6 @@ private fun HydrationChart(chartData: List<ChartPoint>, isDark: Boolean) {
     val minTime = chartData.minOf { it.timestamp }
     val maxTime = chartData.maxOf { it.timestamp }
     val range = (maxTime - minTime).coerceAtLeast(1L)
-    val lineColor = if (isDark) Color(0xFF4FC3F7) else Color(0xFF0277BD)
     val zoomState = rememberVicoZoomState(zoomEnabled = true)
 
     val model = remember(chartData.hashCode()) {
@@ -239,19 +239,19 @@ private fun HydrationChart(chartData: List<ChartPoint>, isDark: Boolean) {
         CartesianChartModel(LineCartesianLayerModel.build { series(x = xs, y = ys) })
     }
 
-    Box(Modifier.fillMaxWidth().height(160.dp).padding(4.dp)) {
+    Box(Modifier.fillMaxWidth().height(160.dp).padding(horizontal = 4.dp)) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(0.5f).fillMaxWidth().background(
-                if (isDark) DarkSafe.copy(alpha = 0.08f) else LightSafe.copy(alpha = 0.1f)))
+                if (isDark) DarkSafe.copy(alpha = 0.06f) else LightSafe.copy(alpha = 0.06f)))
             Box(Modifier.weight(0.25f).fillMaxWidth().background(
-                if (isDark) DarkWarn.copy(alpha = 0.08f) else LightWarn.copy(alpha = 0.1f)))
+                if (isDark) DarkWarn.copy(alpha = 0.06f) else LightWarn.copy(alpha = 0.06f)))
             Box(Modifier.weight(0.25f).fillMaxWidth().background(
-                if (isDark) DarkDanger.copy(alpha = 0.08f) else LightDanger.copy(alpha = 0.1f)))
+                if (isDark) DarkDanger.copy(alpha = 0.06f) else LightDanger.copy(alpha = 0.06f)))
         }
         CartesianChartHost(
             chart = rememberCartesianChart(
                 rememberLineCartesianLayer(),
-                startAxis = VerticalAxis.rememberStart(valueFormatter = { _, v, _ -> "${v.toInt()}" }),
+                startAxis = null,
                 bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = { _, v, _ ->
                     val ts = minTime + (v.toDouble() * range).toLong()
                     val c = java.util.Calendar.getInstance().apply { timeInMillis = ts }
@@ -260,7 +260,7 @@ private fun HydrationChart(chartData: List<ChartPoint>, isDark: Boolean) {
             ),
             model = model,
             zoomState = zoomState,
-            modifier = Modifier.fillMaxSize().padding(top = 4.dp)
+            modifier = Modifier.fillMaxSize()
         )
     }
 }
