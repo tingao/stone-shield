@@ -42,6 +42,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStartAxis
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.core.entry.entryModelOf
+import com.stoneshield.app.domain.Constants
 import com.stoneshield.app.domain.PeeColor
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +82,9 @@ fun DashboardScreen(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(32.dp))
+                HydrationChart(currentMl = state.currentMl)
+
+                Spacer(Modifier.height(16.dp))
 
                 TankGauge(currentMl = state.currentMl, bgColor = bgColor)
 
@@ -112,6 +123,43 @@ fun DashboardScreen(
             }
         }
     }
+}
+
+@Composable
+private fun HydrationChart(currentMl: Int) {
+    val modelProducer = remember { CartesianChartModelProducer() }
+
+    androidx.compose.runtime.LaunchedEffect(currentMl) {
+        modelProducer.runTransaction {
+            lineSeries {
+                series(
+                    listOf(
+                        (System.currentTimeMillis() - 86_400_000) to (currentMl * 0.7).toFloat(),
+                        (System.currentTimeMillis() - 43_200_000) to (currentMl * 0.85).toFloat(),
+                        System.currentTimeMillis() to currentMl.toFloat()
+                    )
+                )
+            }
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(200.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        CartesianChartHost(
+            chart = rememberCartesianChart(
+                rememberLineCartesianLayer(),
+                startAxis = rememberStartAxis(),
+                bottomAxis = rememberBottomAxis()
+            ),
+            modelProducer = modelProducer,
+            modifier = Modifier.padding(8.dp)
+        )
+    }
+
+    Spacer(Modifier.height(8.dp))
 }
 
 @Composable
