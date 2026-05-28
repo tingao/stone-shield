@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +32,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.stoneshield.app.data.repository.DaySummary
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+data class GridDay(val dayNum: Int, val dateStart: Long)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,25 +72,25 @@ fun CalendarScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(12.dp)) {
-            val cal = java.util.Calendar.getInstance()
-            val monthNames = arrayOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-            Text("${monthNames[cal.get(java.util.Calendar.MONTH)]} ${cal.get(java.util.Calendar.YEAR)}",
+            val cal = Calendar.getInstance()
+            val monthNames = arrayOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec")
+            Text("${monthNames[cal.get(Calendar.MONTH)]} ${cal.get(Calendar.YEAR)}",
                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
             Spacer(Modifier.height(8.dp))
-
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach {
+                listOf("Mon","Tue","Wed","Thu","Fri","Sat","Sun").forEach {
                     Text(it, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.width(40.dp), textAlign = TextAlign.Center)
                 }
             }
-
             Spacer(Modifier.height(8.dp))
 
-            val gridDays = rememberDays()
-            LazyVerticalGrid(columns = GridCells.Fixed(7), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(gridDays, key = { it.first }) { (dayNum, dateStart) ->
-                    val summary = days.find { it.date == dateStart }
+            val gridDays = remember { buildMonthGrid() }
+            LazyVerticalGrid(columns = GridCells.Fixed(7),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                itemsIndexed(gridDays, key = { idx, _ -> idx }) { _, gd ->
+                    val summary = days.find { it.date == gd.dateStart }
                     val bg = when {
                         summary == null -> Color.Transparent
                         summary.dangerMinutes > 120 -> Color(0xFFEF9A9A)
@@ -93,11 +100,11 @@ fun CalendarScreen(
                     }
                     Box(
                         modifier = Modifier.size(40.dp).clip(CircleShape).background(bg).then(
-                            if (summary != null) Modifier.clickable { viewModel.selectDay(dateStart) } else Modifier
+                            if (summary != null) Modifier.clickable { viewModel.selectDay(gd.dateStart) } else Modifier
                         ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(if (dayNum > 0) "$dayNum" else "", fontSize = 13.sp)
+                        Text(if (gd.dayNum > 0) "${gd.dayNum}" else "", fontSize = 13.sp)
                     }
                 }
             }
@@ -112,10 +119,10 @@ fun CalendarScreen(
 
 @Composable
 private fun DayDetailCard(day: DaySummary) {
+    val sdf = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            val sdf = remember { java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault()) }
-            Text(sdf.format(java.util.Date(day.date)), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+            Text(sdf.format(Date(day.date)), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(8.dp))
             DetailRow("Average tank", "${day.avgMl} mL")
             DetailRow("Total water", "${day.totalWater} mL")
@@ -133,26 +140,20 @@ private fun DetailRow(label: String, value: String) {
     }
 }
 
-@Composable
-private fun <T> remember(block: () -> T): T = androidx.compose.runtime.remember { block() }
-
-@Composable
-private fun rememberDays(): List<Pair<Int, Long>> {
-    val cal = java.util.Calendar.getInstance()
-    cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
-    val firstDayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK)
-    val offset = (firstDayOfWeek - java.util.Calendar.MONDAY + 7) % 7
-    val daysInMonth = cal.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
-    val cal2 = java.util.Calendar.getInstance()
-    val items = mutableListOf<Pair<Int, Long>>()
-    repeat(offset) { items.add(0 to 0L) }
+private fun buildMonthGrid(): List<GridDay> {
+    val cal = Calendar.getInstance()
+    cal.set(Calendar.DAY_OF_MONTH, 1)
+    val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+    val offset = (firstDayOfWeek - Calendar.MONDAY + 7) % 7
+    val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+    val cal2 = Calendar.getInstance()
+    val items = mutableListOf<GridDay>()
+    repeat(offset) { items.add(GridDay(0, 0L)) }
     for (d in 1..daysInMonth) {
-        cal2.set(java.util.Calendar.DAY_OF_MONTH, d)
-        cal2.set(java.util.Calendar.HOUR_OF_DAY, 0)
-        cal2.set(java.util.Calendar.MINUTE, 0)
-        cal2.set(java.util.Calendar.SECOND, 0)
-        cal2.set(java.util.Calendar.MILLISECOND, 0)
-        items.add(d to cal2.timeInMillis)
+        cal2.set(Calendar.DAY_OF_MONTH, d)
+        cal2.set(Calendar.HOUR_OF_DAY, 0); cal2.set(Calendar.MINUTE, 0)
+        cal2.set(Calendar.SECOND, 0); cal2.set(Calendar.MILLISECOND, 0)
+        items.add(GridDay(d, cal2.timeInMillis))
     }
     return items
 }

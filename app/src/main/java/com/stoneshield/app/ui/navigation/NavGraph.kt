@@ -4,11 +4,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
-import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.stoneshield.app.ui.calendar.CalendarScreen
 import com.stoneshield.app.ui.dashboard.DashboardScreen
 import com.stoneshield.app.ui.history.HistoryScreen
@@ -40,28 +40,18 @@ fun StoneShieldNavGraph(startDestination: String = Routes.DASHBOARD) {
                 }
             })
         }
-        composable(Routes.DASHBOARD) { entry ->
+        composable(Routes.DASHBOARD) {
             DashboardScreen(
                 onNavigateSettings = { navController.navigate(Routes.SETTINGS) },
-                onNavigateHistory = {
-                    navController.navigate(Routes.HISTORY)
-                },
-                onNavigateCalendar = {
-                    navController.navigate(Routes.CALENDAR)
-                }
+                onNavigateHistory = { navController.navigate(Routes.HISTORY) },
+                onNavigateCalendar = { navController.navigate(Routes.CALENDAR) }
             )
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = {
-                navController.previousBackStackEntry?.savedStateHandle?.set("refresh", true)
-                navController.popBackStack()
-            })
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.HISTORY) {
-            HistoryScreen(onBack = {
-                navController.previousBackStackEntry?.savedStateHandle?.set("refresh", true)
-                navController.popBackStack()
-            })
+            HistoryScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.CALENDAR) {
             CalendarScreen(onBack = { navController.popBackStack() })

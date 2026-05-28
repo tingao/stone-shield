@@ -2,7 +2,6 @@ package com.stoneshield.app.ui.dashboard
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.stoneshield.app.data.local.UserPreferences
 import com.stoneshield.app.data.repository.ChartPoint
@@ -30,6 +29,7 @@ data class DashboardUiState(
     val showUsagePermission: Boolean = false,
     val showNotificationPermission: Boolean = false,
     val showExactAlarmPermission: Boolean = false,
+    val waterButtons: List<Int> = listOf(300, 500, 700),
     val message: String? = null
 )
 
@@ -41,8 +41,7 @@ class DashboardViewModel @Inject constructor(
     private val usageStatsProvider: UsageStatsProvider,
     private val alarmScheduler: HydrationAlarmScheduler,
     private val chargeTimeTracker: ChargeTimeTracker,
-    private val prefs: UserPreferences,
-    private val savedStateHandle: SavedStateHandle
+    private val prefs: UserPreferences
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -50,62 +49,68 @@ class DashboardViewModel @Inject constructor(
 
     init {
         chargeTimeTracker.register()
-        checkPermissions()
+        loadWaterButtons()
+        checkPermissionsSafe()
         runNightProtocol()
-        observeRefreshSignal()
     }
 
-    private fun observeRefreshSignal() {
+    private fun loadWaterButtons() {
         viewModelScope.launch {
-            savedStateHandle.getStateFlow("refresh", false).collect { needsRefresh ->
-                if (needsRefresh) {
-                    savedStateHandle["refresh"] = false
-                    refresh()
+            val saved = prefs.waterButtons.first()
+            if (saved.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(waterButtons = saved)
+            }
+        }
+    }
+
+    private fun checkPermissionsSafe() {
+        val app = getApplication<Application>()
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                val nm = app.getSystemService(android.app.NotificationManager::class.java)
+                if (nm != null && !nm.areNotificationsEnabled()) {
+                    _uiState.value = _uiState.value.copy(showNotificationPermission = true)
                 }
             }
-        }
-    }
-
-    private fun checkPermissions() {
-        val app = getApplication<Application>()
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            val nm = app.getSystemService(android.app.NotificationManager::class.java)
-            if (nm != null && !nm.areNotificationsEnabled()) {
-                _uiState.value = _uiState.value.copy(showNotificationPermission = true)
+        } catch (_: Exception) {}
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                val am = app.getSystemService(android.app.AlarmManager::class.java)
+                if (am != null && !am.canScheduleExactAlarms()) {
+                    _uiState.value = _uiState.value.copy(showExactAlarmPermission = true)
+                }
             }
-        }
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
-            val am = app.getSystemService(android.app.AlarmManager::class.java)
-            if (am != null && !am.canScheduleExactAlarms()) {
-                _uiState.value = _uiState.value.copy(showExactAlarmPermission = true)
+        } catch (_: Exception) {}
+        try {
+            val usm = app.getSystemService(android.app.usage.UsageStatsManager::class.java)
+            if (usm != null) {
+                val now = System.currentTimeMillis()
+                val stats = usm.queryUsageStats(
+                    android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+                    now - 86_400_000, now
+                )
+                if (stats == null || stats.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(showUsagePermission = true)
+                }
             }
-        }
-        val usm = app.getSystemService(android.app.usage.UsageStatsManager::class.java)
-        if (usm != null) {
-            val now = System.currentTimeMillis()
-            val stats = usm.queryUsageStats(
-                android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-                now - 86_400_000, now
-            )
-            if (stats == null || stats.isEmpty()) {
-                _uiState.value = _uiState.value.copy(showUsagePermission = true)
-            }
-        }
+        } catch (_: Exception) {}
     }
 
     private fun runNightProtocol() {
         viewModelScope.launch {
-            val block = usageStatsProvider.detectSleepBlock()
-            if (block != null) {
-                val recentSleep = repository.hasRecentSleepEvent(block.startTime)
-                if (!recentSleep) {
-                    repository.addSleepEventAt(block.startTime)
-                    val tank = refreshTank()
-                    if (tank != null && tank.currentMl < 400) {
-                        _uiState.value = _uiState.value.copy(showMorningPrompt = true)
+            try {
+                val block = usageStatsProvider.detectSleepBlock()
+                if (block != null) {
+                    val recentSleep = repository.hasRecentSleepEvent(block.startTime)
+                    if (!recentSleep) {
+                        repository.addSleepEventAt(block.startTime)
+                        val tank = refreshTank()
+                        if (tank != null && tank.currentMl < 400) {
+                            _uiState.value = _uiState.value.copy(showMorningPrompt = true)
+                        }
                     }
                 }
-            }
+            } catch (_: Exception) {}
             refresh()
         }
     }
@@ -114,11 +119,12 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, message = null)
             val tank = refreshTank()
-            val prefsVal = prefs.alarmEnabled.first()
-            val alarmsEnabled = prefsVal
+            val alarmsEnabled = prefs.alarmEnabled.first()
             if (tank != null && alarmsEnabled) {
-                val alerts = repository.calculateAlerts(tank)
-                alarmScheduler.scheduleNextWarning(alerts.warningMinutes, alerts.criticalMinutes)
+                try {
+                    val alerts = repository.calculateAlerts(tank)
+                    alarmScheduler.scheduleNextWarning(alerts.warningMinutes, alerts.criticalMinutes)
+                } catch (_: Exception) {}
             } else if (!alarmsEnabled) {
                 alarmScheduler.cancelAlarm()
             }
@@ -143,8 +149,8 @@ class DashboardViewModel @Inject constructor(
     fun addWater(amount: Int) { viewModelScope.launch { repository.addWater(amount); _uiState.value = _uiState.value.copy(message = "+${amount}ml water"); refresh() } }
     fun addAlcohol() { viewModelScope.launch { repository.addAlcohol(); _uiState.value = _uiState.value.copy(message = "Alcohol logged (120min diuretic)"); refresh() } }
     fun addPee(volume: Int, color: PeeColor) { viewModelScope.launch { repository.addPee(volume, color); _uiState.value = _uiState.value.copy(message = "Pee logged: ${color.name}"); refresh() } }
-    fun addSleep(sweatLevel: Int) { viewModelScope.launch { if (sweatLevel > 0) repository.addSweat(sweatLevel); repository.addSleep(); _uiState.value = _uiState.value.copy(showBedtimeCheck = false, message = "Good night! Sleeping..."); refresh() } }
-    fun addWake() { viewModelScope.launch { repository.addWake(); _uiState.value = _uiState.value.copy(showMorningPrompt = false, message = "Good morning! Hydrate!"); refresh() } }
+    fun addSleep(sweatLevel: Int) { viewModelScope.launch { if (sweatLevel > 0) repository.addSweat(sweatLevel); repository.addSleep(); _uiState.value = _uiState.value.copy(showBedtimeCheck = false, message = "Good night!"); refresh() } }
+    fun addWake() { viewModelScope.launch { repository.addWake(); _uiState.value = _uiState.value.copy(showMorningPrompt = false, message = "Good morning!"); refresh() } }
     fun showBedtimeCheck() { _uiState.value = _uiState.value.copy(showBedtimeCheck = true) }
     fun dismissBedtimeCheck() { _uiState.value = _uiState.value.copy(showBedtimeCheck = false) }
     fun dismissMorningPrompt() { _uiState.value = _uiState.value.copy(showMorningPrompt = false) }
