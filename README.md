@@ -8,13 +8,13 @@ Track your hydration like a fuel gauge: log water intake, pee output, alcohol, a
 
 ## Screenshots
 
-| Dashboard | Pee Log | Bedtime Check | History |
+| Dashboard (empty) | Dashboard (with data) | Dashboard (dated) | Calendar |
 |-----------|---------|---------------|---------|
-| <img src="docs/screenshots/dashboard.webp" width="180"/> | <img src="docs/screenshots/pee_sheet.webp" width="180"/> | <img src="docs/screenshots/bedtime.webp" width="180"/> | <img src="docs/screenshots/history.webp" width="180"/> |
+| <img src="docs/screenshots/dashboard-clear.jpg" width="180"/> | <img src="docs/screenshots/dashboard-graphed.jpg" width="180"/> | <img src="docs/screenshots/dashboard-with-date.jpg" width="180"/> | <img src="docs/screenshots/calendar.jpg" width="180"/> |
 
-| Morning Prompt | Settings | Onboarding | Dark Mode |
-|----------------|---------|------------|-----------|
-| <img src="docs/screenshots/morning.webp" width="180"/> | <img src="docs/screenshots/settings.webp" width="180"/> | <img src="docs/screenshots/onboarding.webp" width="180"/> | <img src="docs/screenshots/dark.webp" width="180"/> |
+| Intro 1 | Intro 2 | Intro 3 | Intro 4 | Settings |
+|---------|---------|---------|---------|----------|
+| <img src="docs/screenshots/intro1-track-hydration.jpg" width="180"/> | <img src="docs/screenshots/intro2-stay-in-the-green.jpg" width="180"/> | <img src="docs/screenshots/intro3-sleep-detection.jpg" width="180"/> | <img src="docs/screenshots/intro4-smart-alarms.jpg" width="180"/> | <img src="docs/screenshots/settings.jpg" width="180"/> |
 
 ---
 
