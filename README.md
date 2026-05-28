@@ -131,6 +131,18 @@ The app has **no background services**. Every interaction:
 
 ---
 
+---
+
+## Built With AI
+
+This entire application was built using **[opencode](https://opencode.ai)** and **DeepSeek V4 Flash** — an AI pair programmer, from concept to APK.
+
+No hand-written code. Every line was generated through natural language conversation, iterated via build-feedback loops, and refined based on real device testing.
+
+**Issues and improvements are welcome.** The codebase is fully editable — file an issue, open a PR, or just clone and build.
+
+---
+
 ## License
 
 Apache 2.0
