@@ -94,8 +94,14 @@ import com.stoneshield.app.ui.theme.LightDanger
 import com.stoneshield.app.ui.theme.LightSafe
 import com.stoneshield.app.ui.theme.LightWarn
 
-private val TEAL = Color(0xFF00897B)
-private val WATER_BLUE = Color(0xFF0277BD)
+private val WATER_BLUE_L = Color(0xFF0277BD)
+private val WATER_BLUE_D = Color(0xFF4FC3F7)
+private val ALCOHOL_L = Color(0xFFE65100)
+private val ALCOHOL_D = Color(0xFFFFB74D)
+private val PEE_L = Color(0xFF7B1FA2)
+private val PEE_D = Color(0xFFCE93D8)
+private val SLEEP_L = Color(0xFF2E7D32)
+private val SLEEP_D = Color(0xFF81C784)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -203,7 +209,8 @@ fun DashboardScreen(
                         onWater = { viewModel.addWater(it) },
                         onAlcohol = { viewModel.addAlcohol() },
                         onPeeLogged = { v, c -> viewModel.addPee(v, c) },
-                        onSleep = { viewModel.showBedtimeCheck() }
+                        onSleep = { viewModel.showBedtimeCheck() },
+                        isDark = isDark
                     )
                 }
                 Spacer(Modifier.height(24.dp))
@@ -315,9 +322,15 @@ private fun QuickActionButtons(
     onWater: (Int) -> Unit,
     onAlcohol: () -> Unit,
     onPeeLogged: (Int, PeeColor) -> Unit,
-    onSleep: () -> Unit
+    onSleep: () -> Unit,
+    isDark: Boolean
 ) {
     var showPeeSheet by remember { mutableStateOf(false) }
+    val wc = if (isDark) WATER_BLUE_D else WATER_BLUE_L
+    val ac = if (isDark) ALCOHOL_D else ALCOHOL_L
+    val pc = if (isDark) PEE_D else PEE_L
+    val sc = if (isDark) SLEEP_D else SLEEP_L
+
     Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Quick Actions", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
@@ -338,7 +351,7 @@ private fun QuickActionButtons(
                     ) {
                         Column(Modifier.padding(horizontal = 4.dp, vertical = 6.dp).fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.WaterDrop, null, tint = WATER_BLUE, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.WaterDrop, null, tint = wc, modifier = Modifier.size(20.dp))
                             Text("+$amount", fontSize = 11.sp, maxLines = 1)
                         }
                     }
@@ -348,9 +361,9 @@ private fun QuickActionButtons(
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionCard("Alcohol", Icons.Default.WineBar, Color(0xFFE65100), onAlcohol)
-            ActionCard("Log Pee", Icons.Default.Wc, Color(0xFF7B1FA2)) { showPeeSheet = true }
-            ActionCard("Sleep", Icons.Default.Bedtime, Color(0xFF2E7D32), onSleep)
+            ActionCard("Alcohol", Icons.Default.WineBar, ac, onAlcohol)
+            ActionCard("Log Pee", Icons.Default.Wc, pc) { showPeeSheet = true }
+            ActionCard("Sleep", Icons.Default.Bedtime, sc, onSleep)
         }
     }
     if (showPeeSheet) {
@@ -391,11 +404,10 @@ private fun BedtimeCheckDialog(onDismiss: () -> Unit, onConfirm: (Int) -> Unit) 
 
 @Composable
 private fun Btn(text: String, selected: Boolean, onClick: () -> Unit) {
-    Button(onClick = onClick,
-        colors = ButtonDefaults.buttonColors(containerColor = if (selected) WATER_BLUE else Color.LightGray),
-        shape = RoundedCornerShape(8.dp)) {
-        Text(text, color = if (selected) Color.White else Color.Black)
-    }
+    val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val fg = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    Button(onClick = onClick, colors = ButtonDefaults.buttonColors(containerColor = bg),
+        shape = RoundedCornerShape(8.dp)) { Text(text, color = fg) }
 }
 
 @Composable
@@ -426,11 +438,12 @@ private fun PeeBottomSheet(onDismiss: () -> Unit, onPeeLogged: (Int, PeeColor) -
                         PeeColor.LIGHT_YELLOW -> "Light\nYellow"
                         PeeColor.CLEAR -> "Clear"
                     }
+                    val sel = selectedColor == c
                     Button({ selectedColor = c },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (selectedColor == c) WATER_BLUE else Color.LightGray),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
                         shape = RoundedCornerShape(8.dp), modifier = Modifier.height(52.dp)) {
                         Text(n, fontSize = 10.sp, textAlign = TextAlign.Center,
-                            color = if (selectedColor == c) Color.White else Color.Black)
+                            color = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -439,10 +452,11 @@ private fun PeeBottomSheet(onDismiss: () -> Unit, onPeeLogged: (Int, PeeColor) -
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(100, 200, 300, 400).forEach { vol ->
+                    val sel = selectedVolume == vol
                     Button({ selectedVolume = vol },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (selectedVolume == vol) WATER_BLUE else Color.LightGray),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
                         shape = RoundedCornerShape(8.dp)) {
-                        Text("${vol}ml", color = if (selectedVolume == vol) Color.White else Color.Black)
+                        Text("${vol}ml", color = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }

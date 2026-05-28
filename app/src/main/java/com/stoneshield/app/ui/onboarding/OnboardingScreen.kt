@@ -1,6 +1,7 @@
 package com.stoneshield.app.ui.onboarding
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,20 +33,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 
-private val BLUE = Color(0xFF1565C0)
-
 @Composable
 fun OnboardingScreen(
     onComplete: () -> Unit,
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     var step by remember { mutableIntStateOf(0) }
+    val isDark = isSystemInDarkTheme()
+    val accent = if (isDark) Color(0xFF90CAF9) else Color(0xFF1565C0)
 
     val pages = listOf(
         Triple("💧", "Track Your Hydration",
-            "Stone Shield calculates your body water level in real-time. Log water, food, and pee to stay in the safe zone."),
+            "Stone Shield calculates your body water level in real-time. Log water and pee to stay in the safe zone."),
         Triple("🎯", "Stay in the Green",
-            "Your tank fills when you drink and drains over time. Stay above 400ml (Green) to avoid dehydration risk."),
+            "Your tank fills when you drink and drains over time. Stay above 400ml to avoid dehydration risk."),
         Triple("🌙", "Sleep Detection",
             "The app detects your sleep automatically using phone usage stats. Wake up to a morning hydration prompt."),
         Triple("⏰", "Smart Alarms",
@@ -60,40 +61,32 @@ fun OnboardingScreen(
         val page = pages[step]
 
         Box(
-            modifier = Modifier.size(120.dp).clip(CircleShape).background(BLUE.copy(alpha = 0.1f)),
+            modifier = Modifier.size(120.dp).clip(CircleShape).background(accent.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
-        ) {
-            Text(text = page.first, fontSize = 48.sp)
-        }
+        ) { Text(page.first, fontSize = 48.sp) }
 
         Spacer(Modifier.height(32.dp))
 
-        Text(
-            text = page.second,
+        Text(page.second,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onBackground)
 
         Spacer(Modifier.height(16.dp))
 
-        Text(
-            text = page.third,
+        Text(page.third,
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-        )
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f))
 
         Spacer(Modifier.height(48.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             pages.indices.forEach { i ->
-                Box(
-                    modifier = Modifier
-                        .size(if (i == step) 24.dp else 8.dp, 8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(if (i == step) BLUE else Color.LightGray)
-                )
+                Box(Modifier.size(if (i == step) 24.dp else 8.dp, 8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(if (i == step) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)))
             }
         }
 
@@ -102,20 +95,13 @@ fun OnboardingScreen(
         Button(
             onClick = {
                 if (step < pages.size - 1) step++
-                else {
-                    viewModel.completeOnboarding()
-                    onComplete()
-                }
+                else { viewModel.completeOnboarding(); onComplete() }
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BLUE)
+            shape = RoundedCornerShape(14.dp)
         ) {
-            Text(
-                if (step < pages.size - 1) "Next" else "Start",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
+            Text(if (step < pages.size - 1) "Next" else "Start",
+                fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
     }
 }
