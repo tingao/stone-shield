@@ -139,7 +139,6 @@ class DashboardViewModel @Inject constructor(
         val plugged = temperatureProvider.isPluggedIn()
         val state = repository.calculateCurrentTank(temp, plugged, chargeMinutes)
         val chart = repository.calculateChartData(
-            System.currentTimeMillis() - 24 * 60 * 60 * 1000,
             temperatureCelsius = temp, isPluggedIn = plugged, chargeTimeMinutes = chargeMinutes
         )
         _uiState.value = _uiState.value.copy(tankState = state, chartData = chart)

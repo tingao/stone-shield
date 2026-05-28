@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
@@ -212,6 +213,7 @@ private fun HydrationChart(chartData: List<ChartPoint>, isDark: Boolean) {
     val maxTime = chartData.maxOf { it.timestamp }
     val range = (maxTime - minTime).coerceAtLeast(1L)
     val lineColor = if (isDark) Color(0xFF4FC3F7) else Color(0xFF0277BD)
+    val zoomState = rememberVicoZoomState(zoomEnabled = true)
 
     val model = remember(chartData.hashCode()) {
         val xs = chartData.map { ((it.timestamp - minTime).toFloat()) }
@@ -239,6 +241,7 @@ private fun HydrationChart(chartData: List<ChartPoint>, isDark: Boolean) {
                 })
             ),
             model = model,
+            zoomState = zoomState,
             modifier = Modifier.fillMaxSize().padding(top = 4.dp)
         )
     }

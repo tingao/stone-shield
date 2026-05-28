@@ -214,18 +214,21 @@ class TankRepository @Inject constructor(
     }
 
     suspend fun calculateChartData(
-        since: Long,
-        sampleIntervalMs: Long = 5 * 60 * 1000,
         temperatureCelsius: Double?,
         isPluggedIn: Boolean,
         chargeTimeMinutes: Long
     ): List<ChartPoint> {
         val now = System.currentTimeMillis()
-        val events = eventDao.getEventsSinceSync(since)
+        val lookback = now - 24 * 60 * 60 * 1000L
+        val events = eventDao.getEventsSinceSync(lookback)
+        val sampleIntervalMs = 5 * 60 * 1000L
         val points = mutableListOf<ChartPoint>()
 
+        // Determine start time: earliest event or 3h ago
+        val effectiveStart = if (events.isNotEmpty()) events.first().timestamp else now - 3 * 60 * 60 * 1000L
+
         var lastVolume = Constants.SATURATION_CAP
-        var lastEventTime = since
+        var lastEventTime = effectiveStart
         var bodyState = BodyState.AWAKE
         var alcoholActive = false
         var alcoholUntil = 0L
@@ -271,6 +274,15 @@ class TankRepository @Inject constructor(
         lastVolume = HydrationMath.calculateCurrentTank(lastVolume, 0, 0, max(0, finalElapsed), finalRate)
         points.add(ChartPoint(now, lastVolume))
 
+        // Future projection: simulate until tank runs out or 24h from start
+        val projectionEnd = minOf(
+            now + if (finalRate > 0) (lastVolume / finalRate * 60 * 1000).toLong() else 6 * 60 * 60 * 1000L,
+            effectiveStart + 24 * 60 * 60 * 1000L
+        )
+        if (projectionEnd > now) {
+            simulate(projectionEnd)
+        }
+
         return points
     }
 
@@ -279,7 +291,7 @@ class TankRepository @Inject constructor(
         val events = eventDao.getEventsForDaySync(dayStart, dayEnd)
         val hasData = events.isNotEmpty()
         if (!hasData) return DaySummary(dayStart, false)
-        val chart = calculateChartData(dayStart, 30 * 60 * 1000, null, false, 0)
+        val chart = calculateChartData(null, false, 0L)
         val avg = if (chart.isNotEmpty()) chart.map { it.volume }.average().toInt() else 0
         val totalWater = events.filter { it.type == EventEntity.TYPE_WATER }.sumOf { it.value }
         val min = chart.minOfOrNull { it.volume } ?: 0

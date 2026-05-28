@@ -8,7 +8,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -26,10 +29,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setWaterButtons(buttons: List<Int>) {
-        viewModelScope.launch { prefs.setWaterButtons(buttons) }
+        viewModelScope.launch(NonCancellable + Dispatchers.IO) { prefs.setWaterButtons(buttons) }
     }
 
     fun clearAllData() {
-        viewModelScope.launch { repository.clearAll() }
+        viewModelScope.launch(NonCancellable + Dispatchers.IO) { repository.clearAll() }
     }
 }
