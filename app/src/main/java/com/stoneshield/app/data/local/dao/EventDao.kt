@@ -20,6 +20,15 @@ interface EventDao {
     @Insert
     suspend fun insertEvent(event: EventEntity): Long
 
+    @Query("DELETE FROM events WHERE id = :id")
+    suspend fun deleteEvent(id: Long)
+
     @Query("DELETE FROM events")
     suspend fun clearAll()
+
+    @Query("SELECT COUNT(*) FROM events WHERE type = 'sleep' AND timestamp >= :since AND timestamp <= :until")
+    suspend fun hasSleepEventInRange(since: Long, until: Long): Int
+
+    @Query("SELECT * FROM events ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentEventsSync(limit: Int): List<EventEntity>
 }

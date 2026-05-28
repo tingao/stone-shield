@@ -197,6 +197,28 @@ class TankRepository @Inject constructor(
         )
     }
 
+    suspend fun hasRecentSleepEvent(since: Long): Boolean {
+        return eventDao.hasSleepEventInRange(since - 60_000, System.currentTimeMillis()) > 0
+    }
+
+    suspend fun addSleepEventAt(timestamp: Long) {
+        eventDao.insertEvent(
+            EventEntity(
+                timestamp = timestamp,
+                type = EventEntity.TYPE_SLEEP,
+                value = 0
+            )
+        )
+    }
+
+    suspend fun deleteEvent(id: Long) {
+        eventDao.deleteEvent(id)
+    }
+
+    suspend fun getRecentEvents(limit: Int = 100): List<EventEntity> {
+        return eventDao.getRecentEventsSync(limit)
+    }
+
     suspend fun clearAll() {
         eventDao.clearAll()
     }
