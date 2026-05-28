@@ -251,7 +251,7 @@ private fun HydrationChart(chartData: List<ChartPoint>, isDark: Boolean) {
         CartesianChartHost(
             chart = rememberCartesianChart(
                 rememberLineCartesianLayer(),
-                startAxis = null,
+                startAxis = VerticalAxis.rememberStart(valueFormatter = { _, v, _ -> "${v.toInt()} mL" }),
                 bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = { _, v, _ ->
                     val ts = minTime + (v.toDouble() * range).toLong()
                     val c = java.util.Calendar.getInstance().apply { timeInMillis = ts }

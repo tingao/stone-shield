@@ -274,14 +274,11 @@ class TankRepository @Inject constructor(
         lastVolume = HydrationMath.calculateCurrentTank(lastVolume, 0, 0, max(0, finalElapsed), finalRate)
         points.add(ChartPoint(now, lastVolume))
 
-        // Future projection: simulate until tank runs out or 24h from start
-        val projectionEnd = minOf(
-            now + if (finalRate > 0) (lastVolume / finalRate * 60 * 1000).toLong() else 6 * 60 * 60 * 1000L,
-            effectiveStart + 24 * 60 * 60 * 1000L
-        )
-        if (projectionEnd > now) {
-            simulate(projectionEnd)
-        }
+        // Future projection: simulate until tank runs out or 24h from start, whichever comes first
+        val timeToEmpty = if (finalRate > 0) (lastVolume / finalRate * 60 * 1000).toLong()
+            else 6 * 60 * 60 * 1000L
+        val projectionEnd = minOf(now + timeToEmpty, effectiveStart + 24 * 60 * 60 * 1000L)
+        if (projectionEnd > now) simulate(projectionEnd)
 
         return points
     }
