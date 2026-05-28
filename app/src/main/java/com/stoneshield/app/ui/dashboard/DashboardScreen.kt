@@ -170,16 +170,27 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.elevatedCardElevation(4.dp)
-                ) { HydrationChart(uiState.chartData, isDark) }
+                ) {
+                    if (uiState.hasEvents) {
+                        HydrationChart(uiState.chartData, isDark)
+                    } else {
+                        Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
+                            Text("No data yet — add water or log events", color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(24.dp))
 
-                AnimatedTankGauge(state.currentMl, zoneColor)
+                AnimatedTankGauge(if (uiState.hasEvents) state.currentMl else 800, zoneColor)
                 Spacer(Modifier.height(4.dp))
-                StatusText(state, zoneColor)
-                Spacer(Modifier.height(16.dp))
-
-                GradientTankBar(state.currentMl, Constants.SATURATION_CAP, Constants.SAFE_FLOOR, Constants.DANGER_FLOOR, isDark)
+                if (uiState.hasEvents) {
+                    StatusText(state, zoneColor)
+                    Spacer(Modifier.height(16.dp))
+                    GradientTankBar(state.currentMl, Constants.SATURATION_CAP, Constants.SAFE_FLOOR, Constants.DANGER_FLOOR, isDark)
+                } else {
+                    Text("Log your first drink to start", color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
+                }
                 Spacer(Modifier.height(24.dp))
 
                 ElevatedCard(
@@ -323,7 +334,7 @@ private fun QuickActionButtons(
                 ) {
                     Column(Modifier.padding(8.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.WaterDrop, null, tint = WATER_BLUE, modifier = Modifier.size(22.dp))
-                        Text("+$amount", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("+$amount", fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                     }
                 }
             }
@@ -349,7 +360,7 @@ private fun ActionCard(label: String, icon: ImageVector, color: Color, onClick: 
     ) {
         Column(Modifier.padding(8.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
-            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
         }
     }
 }

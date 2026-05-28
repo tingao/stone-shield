@@ -88,9 +88,15 @@ fun SettingsScreen(
                     Text("Customize quick-add water amounts (max 5)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
 
-                    val values = remember { mutableStateListOf<String>().apply {
-                        waterButtons.sorted().forEach { add(it.toString()) }
-                    } }
+                    val values = remember { mutableStateListOf<String>() }
+
+                    androidx.compose.runtime.LaunchedEffect(waterButtons) {
+                        val sorted = waterButtons.sorted().map { it.toString() }
+                        if (values.toList() != sorted) {
+                            values.clear()
+                            values.addAll(sorted)
+                        }
+                    }
 
                     fun autoSave() {
                         val parsed = values.mapNotNull { it.toIntOrNull() }.filter { it in 50..2000 }.sorted()

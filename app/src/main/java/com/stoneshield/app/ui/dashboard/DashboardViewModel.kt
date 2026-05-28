@@ -30,6 +30,7 @@ data class DashboardUiState(
     val showNotificationPermission: Boolean = false,
     val showExactAlarmPermission: Boolean = false,
     val waterButtons: List<Int> = listOf(300, 500, 700),
+    val hasEvents: Boolean = true,
     val message: String? = null
 )
 
@@ -142,11 +143,26 @@ class DashboardViewModel @Inject constructor(
         val chart = repository.calculateChartData(
             temperatureCelsius = temp, isPluggedIn = plugged, chargeTimeMinutes = chargeMinutes
         )
-        _uiState.value = _uiState.value.copy(tankState = state, chartData = chart)
+        val hasEvents = repository.getRecentEvents(1).isNotEmpty()
+        _uiState.value = _uiState.value.copy(tankState = state, chartData = chart, hasEvents = hasEvents)
         return state
     }
 
-    fun addWater(amount: Int) { viewModelScope.launch { repository.addWater(amount); _uiState.value = _uiState.value.copy(message = "+${amount}ml water"); refresh() } }
+    fun addWater(amount: Int) { viewModelScope.launch {
+        val current = _uiState.value.tankState?.currentMl ?: 0
+        if (current >= com.stoneshield.app.domain.Constants.SATURATION_CAP) {
+            _uiState.value = _uiState.value.copy(message = "Already full (${current}ml max)")
+            return@launch
+        }
+        if (current + amount > com.stoneshield.app.domain.Constants.SATURATION_CAP) {
+            _uiState.value = _uiState.value.copy(message = "Capped at ${com.stoneshield.app.domain.Constants.SATURATION_CAP}ml")
+        }
+        repository.addWater(amount)
+        if (current < com.stoneshield.app.domain.Constants.SATURATION_CAP) {
+            _uiState.value = _uiState.value.copy(message = "+${amount}ml water")
+        }
+        refresh()
+    } }
     fun addAlcohol() { viewModelScope.launch { repository.addAlcohol(); _uiState.value = _uiState.value.copy(message = "Alcohol logged (120min diuretic)"); refresh() } }
     fun addPee(volume: Int, color: PeeColor) { viewModelScope.launch { repository.addPee(volume, color); _uiState.value = _uiState.value.copy(message = "Pee logged: ${color.name}"); refresh() } }
     fun addSleep(sweatLevel: Int) { viewModelScope.launch { if (sweatLevel > 0) repository.addSweat(sweatLevel); repository.addSleep(); _uiState.value = _uiState.value.copy(showBedtimeCheck = false, message = "Good night!"); refresh() } }

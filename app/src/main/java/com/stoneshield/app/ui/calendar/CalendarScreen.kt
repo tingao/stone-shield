@@ -132,15 +132,28 @@ fun CalendarScreen(
                         summary.totalWater > 0 -> Color(0xFFA5D6A7)
                         else -> Color.Transparent
                     }
+                    val todayStart = remember {
+                        val c = Calendar.getInstance()
+                        c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0)
+                        c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
+                        c.timeInMillis
+                    }
+                    val isToday = gd.dateStart == todayStart && gd.dayNum > 0
+                    val border = if (isToday) Modifier.clip(CircleShape).background(Color.Transparent, CircleShape)
+                        else Modifier
                     Box(
                         modifier = Modifier.size(40.dp).clip(CircleShape).background(bg).then(
+                            if (isToday) Modifier.padding(2.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape) else Modifier
+                        ).then(
                             if (hasData) Modifier.clickable { viewModel.selectDay(gd.dateStart) }
                             else if (gd.dayNum > 0) Modifier.clickable { viewModel.selectDay(gd.dateStart) }
                             else Modifier
                         ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (gd.dayNum > 0) Text("${gd.dayNum}", fontSize = 13.sp)
+                        if (gd.dayNum > 0) Text("${gd.dayNum}", fontSize = 13.sp,
+                            color = if (isToday) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
             }
@@ -195,8 +208,8 @@ private fun SwipeableDayEventRow(event: EventEntity, onDelete: () -> Unit, onEdi
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { onDelete(); true }
-                SwipeToDismissBoxValue.EndToStart -> { onEdit(); false }
+                SwipeToDismissBoxValue.EndToStart -> { onDelete(); true }
+                SwipeToDismissBoxValue.StartToEnd -> { onEdit(); false }
                 else -> false
             }
         }
@@ -206,11 +219,11 @@ private fun SwipeableDayEventRow(event: EventEntity, onDelete: () -> Unit, onEdi
         enableDismissFromStartToEnd = true,
         enableDismissFromEndToStart = true,
         backgroundContent = {
-            val isDel = dismissState.targetValue == SwipeToDismissBoxValue.StartToEnd
+            val isDel = dismissState.targetValue == SwipeToDismissBoxValue.EndToStart
             val color by animateColorAsState(
                 targetValue = if (isDel) Color(0xFFD32F2F) else Color(0xFF1565C0), label = "bg")
             Box(Modifier.fillMaxSize().background(color).padding(horizontal = 16.dp),
-                contentAlignment = if (isDel) Alignment.CenterStart else Alignment.CenterEnd) {
+                contentAlignment = if (isDel) Alignment.CenterEnd else Alignment.CenterStart) {
                 Text(if (isDel) "Delete" else "Edit", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
